@@ -1,0 +1,156 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="components\2_SOUND.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="components\3_NETWORK.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="components\4_.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="components\5_.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="components\6_.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="components\7_.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="components\8_.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="components\9_.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="components\A_.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="components\B_.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="components\C_.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="components\D_.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="components\E_.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="components\F_.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="main.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="util\util.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="components\1_INPUT.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="components\0_GPU.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="components\_CPU.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="components\include\0_GPU.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="components\include\1_INPUT.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="components\include\2_SOUND.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="components\include\3_NETWORK.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="components\include\4_.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="components\include\5_.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="components\include\6_.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="components\include\7_.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="components\include\8_.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="components\include\9_.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="components\include\A_.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="components\include\B_.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="components\include\C_.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="components\include\D_.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="components\include\E_.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="components\include\F_.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\config.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Constants.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\main.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\TGR.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="util\include\util.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="components\include\_CPU.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="x86\SDL2.dll" />
+    <None Include="x64\SDL2.dll" />
+  </ItemGroup>
+  <ItemGroup>
+    <Library Include="x86\SDL2main.lib" />
+    <Library Include="x86\SDL2test.lib" />
+    <Library Include="x86\SDL2.lib" />
+    <Library Include="x64\SDL2.lib" />
+    <Library Include="x64\SDL2main.lib" />
+    <Library Include="x64\SDL2test.lib" />
+  </ItemGroup>
+</Project>

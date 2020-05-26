@@ -1,0 +1,733 @@
+//#############################//
+//#############################//
+//#       THE GAME RAZER      #//
+//#      MAIN SYSTEM FILE     #//
+//#      **DO NOT EDIT**      #//
+//#############################//
+//#############################//
+//#############################//
+
+#include "util/include/util.h"
+#include "include/Constants.h"
+#include "include/TGR.h"
+#include "include/config.h"
+#include "include/main.h"
+static void System_Error(int Err, int Inst, int IP, int ID, char Name[]);
+
+bool     showInfo = false;
+int      slowdown = 0;
+int      FPSLimmit = 1000;
+int      delay = 0;
+int      delay_skip = 62;
+int      frames = 0;
+bool     Exit = false;
+int      argc;
+char* argv[10];
+bool     UInput[14][2] = {false};
+bool     gotUIn = false;
+int      FPS = 0;
+char     execLoc[1024];
+char* dropped_filedir = "";
+bool* restart;
+char     chars[95];
+char* font[95][8];
+bool     ShowFPS;
+bool     crash;
+uint8_t  status[SW][SH][4] = {{{0}}};
+uint8_t  overlay[SW][SH][4] = {{{0}}};
+uint8_t  screen[SW][SH][3] = {{{0}}};
+bool     enableOL = true;
+bool     Title_lock = false;
+int      MsgTimer = 0;
+char     Message[255] = "";
+bool     p = false;
+bool     HUDinfo = false;
+bool     ShowInput = false;
+bool     Fullscreen = false;
+int      zoom = 0;
+uint8_t  LED[3] = {0};
+int      dtmp = 0;
+
+//ZOOM INFO
+//0 - normal
+//1 - 2x
+//2 - scanlines (2x)
+//3 - pixelated (2x)
+//4 - 3x
+//5 - scanlines (3x)
+//6 - pixelated (3x)
+
+//int      info_scr[SW*2];
+CPU_STRUCT CPU;
+SDL_DisplayMode display;
+
+int main(int c, char* v[]) {
+//  CoInitializeEx(NULL);
+  char* TN = (char*)malloc(sizeof(char) * 32); TN = ""; // free(TN);
+  TN = "TheGameRazer - [NO ROM]"; for (int i = 0; i < 23; i++) { Title_Name[i] = TN[i]; } Title_lock = false;
+  argc = c; for (int i = 0; i < argc; i++) { argv[i] = v[i]; }  //printf(">>ARG[%d]: %s\n",i,argv[i]);
+
+  printf("Loading TGR-PRTO v0.0.42b Alpha Build...\n"); //GOAL: v0.0.42b
+
+  SDL_Init(SDL_INIT_VIDEO);
+  SDL_CreateWindowAndRenderer(SW, SH, 2, &window, &GPU_SCREEN);
+  SDL_SetRenderDrawColor(GPU_SCREEN, 0, 0, 0, 255);
+  SDL_RenderClear(GPU_SCREEN);
+  printf("EMU Notice: Screen Opened...\n");
+  // pthread_t call_CPU;
+  // pthread_create(&call_CPU, NULL, CPU_EXEC, NULL);
+
+  // pthread_t call_CLOCK;
+  // pthread_create(&call_CLOCK, NULL, CPU_CLOCK, NULL);
+  //
+  HANDLE call_CPU = CreateThread(0, 0, CPU_EXEC, 0, NULL, 0);
+  HANDLE call_CLOCK = CreateThread(0, 0, CPU_CLOCK, 0, NULL, 0);
+
+  // clock_t EMU_clock = time(0);
+  int gx = 0, gy = 0, ga = 1, zw = 0, zh = 0;
+  crash = true; //when the EMU crashes it'll know if it was a crash or a exit
+  while (Exit == false) {
+    SDL_Delay(10);
+    if (CPU.running == false) {
+      LED[0] = 0x00;
+      LED[1] = 0x00;
+      LED[2] = 0x00;
+    }
+    if (zoom == 0) {
+      if (zw != SW || zh != SH) {
+        SDL_SetWindowSize(window, SW + 2, SH + 2);
+        zw = SW, zh = SH;
+        ga = 1;
+      }
+    }
+    else if (zoom >= 1 && zoom <= 3) {
+      if (zw != SW * 2 || zh != SH * 2) {
+        SDL_SetWindowSize(window, (SW * 2) + 2, (SH * 2) + 2);
+        zw = SW * 2, zh = SH * 2, ga = 2;
+      }
+    }
+    else if (zoom >= 4 && zoom <= 7) {
+      if (zw != SW * 3 || zh != SH * 3) {
+        SDL_SetWindowSize(window, (SW * 3) + 2, (SH * 3) + 3);
+        zw = SW * 3, zh = SH * 3, ga = 3;
+      }
+    }
+    /* ############# GPU ############# */
+    //printf("p == %d\n",p);
+    if (p == false) {
+      GPU.run = true;
+      getChar("Please drop a file or provide a", SW / 2 - 15 * 8, SH / 2 - 4, 255, 255, 255, true, true);
+      getChar("file in the terminal command...", SW / 2 - 15 * 8, SH / 2 + 4, 255, 255, 255, true, true);
+    }
+    else {
+      if (CPU.running == true) {
+        getChar("```````````````````````````````", SW / 2 - 15 * 8, SH / 2 - 8, 0, 0, 0, false, true);
+        getChar("```````````````````````````````", SW / 2 - 15 * 8, SH / 2, 0, 0, 0, false, true);
+        getChar("```````````````````````````````", SW / 2 - 15 * 8, SH / 2 + 8, 0, 0, 0, false, true);
+        getChar("```````````````````````````````", SW / 2 - 15 * 8, SH / 2 - 4, 0, 0, 0, false, true);
+      }
+    }
+    if (Title_lock == false) {
+      //printf("ROM Title: %s\n",Title_Name);
+      SDL_SetWindowTitle(window, Title_Name);
+      Title_lock = true;
+    }
+    SDL_SetRenderDrawColor(GPU_SCREEN, 0, 0, 0, 255);
+    SDL_RenderClear(GPU_SCREEN);
+    //printf("%d\n",zoom);
+    //ZOOM INFO
+    //0 - normal
+    //1 - 2x
+    //2 - scanlines (2x)
+    //3 - pixelated (2x)
+    //4 - 3x
+    //5 - scanlines (3x)
+    //6 - scanlines (3.5x)
+    //7 - pixelated (3x)
+    //printf("Zoom: %d\n",zoom);
+    gx = 0; gy = 0;
+    for (int y = 1; y < (SH * ga) + 1; y = y + ga) {
+      for (int x = 1; x < (SW * ga) + 1; x = x + ga) {
+        SDL_SetRenderDrawColor(GPU_SCREEN, screen[gx][gy][0], screen[gx][gy][1], screen[gx][gy][2], 255);
+        if (enableOL == true && overlay[gx][gy][3] == 1) { SDL_SetRenderDrawColor(GPU_SCREEN, overlay[gx][gy][0], overlay[gx][gy][1], overlay[gx][gy][2], 255); }
+        if (status[gx][gy][3] == 1) { SDL_SetRenderDrawColor(GPU_SCREEN, status[gx][gy][0], status[gx][gy][1], status[gx][gy][2], 255); }
+        SDL_RenderDrawPoint(GPU_SCREEN, x, y);
+        switch (zoom) {
+        case 1: //2x video
+          SDL_RenderDrawPoint(GPU_SCREEN, x + 1, y); SDL_RenderDrawPoint(GPU_SCREEN, x, y + 1); SDL_RenderDrawPoint(GPU_SCREEN, x + 1, y + 1);
+          break;
+        case 2:
+          SDL_RenderDrawPoint(GPU_SCREEN, x + 1, y); SDL_SetRenderDrawColor(GPU_SCREEN, (screen[gx][gy][0] / 4) | 0x08, (screen[gx][gy][1] / 4) | 0x08, (screen[gx][gy][2] / 4) | 0x08, 255);
+          if (enableOL == true && overlay[gx][gy][3] == 1) { SDL_SetRenderDrawColor(GPU_SCREEN, (overlay[gx][gy][0] / 4) | 0x08, (overlay[gx][gy][1] / 4) | 0x08, (overlay[gx][gy][2] / 4) | 0x08, 255); }
+          if (status[gx][gy][3] == 1) { SDL_SetRenderDrawColor(GPU_SCREEN, (status[gx][gy][0] / 4) | 0x08, (status[gx][gy][1] / 4) | 0x08, (status[gx][gy][2] / 4) | 0x08, 255); }
+          SDL_RenderDrawPoint(GPU_SCREEN, x, y + 1); SDL_RenderDrawPoint(GPU_SCREEN, x + 1, y + 1);
+          break;
+        case 3:
+          SDL_SetRenderDrawColor(GPU_SCREEN, (screen[gx][gy][0] / 4) | 0x08, (screen[gx][gy][1] / 4) | 0x08, (screen[gx][gy][2] / 4) | 0x08, 255);
+          if (enableOL == true && overlay[gx][gy][3] == 1) { SDL_SetRenderDrawColor(GPU_SCREEN, (overlay[gx][gy][0] / 4) | 0x08, (overlay[gx][gy][1] / 4) | 0x08, (overlay[gx][gy][2] / 4) | 0x08, 255); }
+          if (status[gx][gy][3] == 1) { SDL_SetRenderDrawColor(GPU_SCREEN, (status[gx][gy][0] / 4) | 0x08, (status[gx][gy][1] / 4) | 0x08, (status[gx][gy][2] / 4) | 0x08, 255); }
+          SDL_RenderDrawPoint(GPU_SCREEN, x + 1, y); SDL_RenderDrawPoint(GPU_SCREEN, x, y + 1); SDL_RenderDrawPoint(GPU_SCREEN, x + 1, y + 1);
+          break;
+        case 4: //3x video
+          SDL_RenderDrawPoint(GPU_SCREEN, x + 1, y); SDL_RenderDrawPoint(GPU_SCREEN, x + 2, y); SDL_RenderDrawPoint(GPU_SCREEN, x, y + 1); SDL_RenderDrawPoint(GPU_SCREEN, x + 1, y + 1);
+          SDL_RenderDrawPoint(GPU_SCREEN, x + 2, y + 1); SDL_RenderDrawPoint(GPU_SCREEN, x, y + 2); SDL_RenderDrawPoint(GPU_SCREEN, x + 1, y + 2); SDL_RenderDrawPoint(GPU_SCREEN, x + 2, y + 2);
+          break;
+        case 5:
+          SDL_RenderDrawPoint(GPU_SCREEN, x + 1, y); SDL_RenderDrawPoint(GPU_SCREEN, x + 2, y); SDL_RenderDrawPoint(GPU_SCREEN, x, y + 1); SDL_RenderDrawPoint(GPU_SCREEN, x + 1, y + 1);
+          SDL_RenderDrawPoint(GPU_SCREEN, x + 2, y + 1); SDL_SetRenderDrawColor(GPU_SCREEN, (screen[gx][gy][0] / 4) | 0x08, (screen[gx][gy][1] / 4) | 0x08, (screen[gx][gy][2] / 4) | 0x08, 255);
+          if (enableOL == true && overlay[gx][gy][3] == 1) { SDL_SetRenderDrawColor(GPU_SCREEN, (overlay[gx][gy][0] / 4) | 0x08, (overlay[gx][gy][1] / 4) | 0x08, (overlay[gx][gy][2] / 4) | 0x08, 255); }
+          if (status[gx][gy][3] == 1) { SDL_SetRenderDrawColor(GPU_SCREEN, (status[gx][gy][0] / 4) | 0x08, (status[gx][gy][1] / 4) | 0x08, (status[gx][gy][2] / 4) | 0x08, 255); }
+          SDL_RenderDrawPoint(GPU_SCREEN, x, y + 2); SDL_RenderDrawPoint(GPU_SCREEN, x + 1, y + 2); SDL_RenderDrawPoint(GPU_SCREEN, x + 2, y + 2);
+          break;
+        case 6:
+          SDL_RenderDrawPoint(GPU_SCREEN, x + 1, y); SDL_RenderDrawPoint(GPU_SCREEN, x + 2, y);
+          SDL_SetRenderDrawColor(GPU_SCREEN, (screen[gx][gy][0] / 4) | 0x08, (screen[gx][gy][1] / 4) | 0x08, (screen[gx][gy][2] / 4) | 0x08, 255);
+          if (enableOL == true && overlay[gx][gy][3] == 1) { SDL_SetRenderDrawColor(GPU_SCREEN, (overlay[gx][gy][0] / 4) | 0x08, (overlay[gx][gy][1] / 4) | 0x08, (overlay[gx][gy][2] / 4) | 0x08, 255); }
+          if (status[gx][gy][3] == 1) { SDL_SetRenderDrawColor(GPU_SCREEN, (status[gx][gy][0] / 4) | 0x08, (status[gx][gy][1] / 4) | 0x08, (status[gx][gy][2] / 4) | 0x08, 255); }
+          SDL_RenderDrawPoint(GPU_SCREEN, x, y + 1); SDL_RenderDrawPoint(GPU_SCREEN, x + 1, y + 1); SDL_RenderDrawPoint(GPU_SCREEN, x + 2, y + 1);
+          SDL_RenderDrawPoint(GPU_SCREEN, x, y + 2); SDL_RenderDrawPoint(GPU_SCREEN, x + 1, y + 2); SDL_RenderDrawPoint(GPU_SCREEN, x + 2, y + 2);
+          break;
+        case 7:
+          SDL_RenderDrawPoint(GPU_SCREEN, x + 1, y); SDL_RenderDrawPoint(GPU_SCREEN, x, y + 1); SDL_RenderDrawPoint(GPU_SCREEN, x + 1, y + 1); SDL_SetRenderDrawColor(GPU_SCREEN, (screen[gx][gy][0] / 4) | 0x08, (screen[gx][gy][1] / 4) | 0x08, (screen[gx][gy][2] / 4) | 0x08, 255);
+          if (enableOL == true && overlay[gx][gy][3] == 1) { SDL_SetRenderDrawColor(GPU_SCREEN, (overlay[gx][gy][0] / 4) | 0x08, (overlay[gx][gy][1] / 4) | 0x08, (overlay[gx][gy][2] / 4) | 0x08, 255); }
+          if (status[gx][gy][3] == 1) { SDL_SetRenderDrawColor(GPU_SCREEN, (status[gx][gy][0] / 4) | 0x08, (status[gx][gy][1] / 4) | 0x08, (status[gx][gy][2] / 4) | 0x08, 255); }
+          SDL_RenderDrawPoint(GPU_SCREEN, x + 2, y + 1); SDL_RenderDrawPoint(GPU_SCREEN, x + 2, y); SDL_RenderDrawPoint(GPU_SCREEN, x, y + 2); SDL_RenderDrawPoint(GPU_SCREEN, x + 1, y + 2); SDL_RenderDrawPoint(GPU_SCREEN, x + 2, y + 2);
+          break;
+        } gx++;
+      }gy++; gx = 0;
+    }
+    SDL_SetRenderDrawColor(GPU_SCREEN, LED[0], LED[1], LED[2], 255);
+    SDL_RenderDrawLine(GPU_SCREEN, 0, 0, 0, SH * ga);
+    SDL_RenderDrawLine(GPU_SCREEN, 0, 0, SW * ga, 0);
+    SDL_RenderDrawLine(GPU_SCREEN, SW * ga + 1, 0, SW * ga + 1, SH * ga + 1);
+    SDL_RenderDrawLine(GPU_SCREEN, 0, SH * ga + 1, SW * ga + 1, SH * ga + 1);
+    if (GPU.run == true) {
+      if (frames < FPSLimmit) {
+        if (CPU.debug == true) { printf("GPU: update\n"); }
+        for (int y = 0; y < SH; y++) {
+          for (int x = 0; x < SW; x++) {
+            screen[x][y][0] = buffer[x][y][0];
+            screen[x][y][1] = buffer[x][y][1];
+            screen[x][y][2] = buffer[x][y][2];
+          }
+        } frames++;
+      }
+      else if (CPU.debug == true) { printf("GPU: update skip'd\n"); }
+      GPU.run = false;
+    }
+    SDL_RenderPresent(GPU_SCREEN);
+    //  if (ShowFPS == true) {
+    //   bool* ShowFPS;
+    //   getChar("TEST", 25, SH-26, 256,128,132,true,true);
+    //   getChar("TEST", 26, SH-25, 8,8,8,true,true);
+    //  }
+      /* ############ INPUT ############ */
+    const Uint8* keystates = SDL_GetKeyboardState(NULL);
+    gotUIn = false;
+    while (SDL_PollEvent(&event)) {
+      //Player 1//
+      if (keystates[input0_A]) { UInput[0][0] = true; }
+      else { UInput[0][0] = false; }
+      if (keystates[input0_B]) { UInput[1][0] = true; }
+      else { UInput[1][0] = false; }
+      if (keystates[input0_C]) { UInput[2][0] = true; }
+      else { UInput[2][0] = false; }
+      if (keystates[input0_X]) { UInput[3][0] = true; }
+      else { UInput[3][0] = false; }
+      if (keystates[input0_Y]) { UInput[4][0] = true; }
+      else { UInput[4][0] = false; }
+      if (keystates[input0_Z]) { UInput[5][0] = true; }
+      else { UInput[5][0] = false; }
+      if (keystates[input0_L]) { UInput[6][0] = true; }
+      else { UInput[6][0] = false; }
+      if (keystates[input0_R]) { UInput[7][0] = true; }
+      else { UInput[7][0] = false; }
+      if (keystates[input0_Start]) { UInput[8][0] = true; }
+      else { UInput[8][0] = false; }
+      if (keystates[input0_Select]) { UInput[9][0] = true; }
+      else { UInput[9][0] = false; }
+      if (keystates[input0_Up]) { UInput[10][0] = true; }
+      else { UInput[10][0] = false; }
+      if (keystates[input0_Down]) { UInput[11][0] = true; }
+      else { UInput[11][0] = false; }
+      if (keystates[input0_Left]) { UInput[12][0] = true; }
+      else { UInput[12][0] = false; }
+      if (keystates[input0_Right]) { UInput[13][0] = true; }
+      else { UInput[13][0] = false; }
+      //Player 2//
+      if (keystates[input1_A]) { UInput[0][1] = true; }
+      else { UInput[0][1] = false; }
+      if (keystates[input1_B]) { UInput[1][1] = true; }
+      else { UInput[1][1] = false; }
+      if (keystates[input1_C]) { UInput[2][1] = true; }
+      else { UInput[2][1] = false; }
+      if (keystates[input1_X]) { UInput[3][1] = true; }
+      else { UInput[3][1] = false; }
+      if (keystates[input1_Y]) { UInput[4][1] = true; }
+      else { UInput[4][1] = false; }
+      if (keystates[input1_Z]) { UInput[5][1] = true; }
+      else { UInput[5][1] = false; }
+      if (keystates[input1_L]) { UInput[6][1] = true; }
+      else { UInput[6][1] = false; }
+      if (keystates[input1_R]) { UInput[7][1] = true; }
+      else { UInput[7][1] = false; }
+      if (keystates[input1_Start]) { UInput[8][1] = true; }
+      else { UInput[8][1] = false; }
+      if (keystates[input1_Select]) { UInput[9][1] = true; }
+      else { UInput[9][1] = false; }
+      if (keystates[input1_Up]) { UInput[10][1] = true; }
+      else { UInput[10][1] = false; }
+      if (keystates[input1_Down]) { UInput[11][1] = true; }
+      else { UInput[11][1] = false; }
+      if (keystates[input1_Left]) { UInput[12][1] = true; }
+      else { UInput[12][1] = false; }
+      if (keystates[input1_Right]) { UInput[13][1] = true; }
+      else { UInput[13][1] = false; }
+      if (keystates[SDL_SCANCODE_ESCAPE]) {
+        if (enableOL == true) {
+          enableOL = false;
+          printf("[EMU] enableOL: false\n");
+        }
+        else {
+          enableOL = true;
+          printf("[EMU] enableOL: true\n");
+        } SDL_Delay(100);
+      }
+      if ((keystates[SDL_SCANCODE_LCTRL] || keystates[SDL_SCANCODE_RCTRL]) && keystates[SDL_SCANCODE_D]) {
+        if (CPU.debug == true) {
+          CPU.debug = false;
+          printf("[EMU] CPU.debug: False\n");
+        }
+        else {
+          CPU.debug = true;
+          printf("[EMU] CPU.debug: True\n");
+        } SDL_Delay(100);
+      }
+      if ((keystates[SDL_SCANCODE_LCTRL] || keystates[SDL_SCANCODE_RCTRL]) && keystates[SDL_SCANCODE_I]) {
+        if (HUDinfo == true) {
+          HUDinfo = false;
+          printf("EMU: [HUD Info: False]\n");
+          getChar("``````````````````````````````````````````````````````````", 2 * 8, 2 * 8, 128, 255, 128, false, false);
+          getChar("``````````````````````````````````````````````````````````", 2 * 8, SH - (4 * 8), 0, 0, 0, false, false);
+          getChar("``````````````````````````````````````````````````````````", 1 * 8, SH - (5 * 8), 0, 0, 0, false, false);
+          getChar("````````````````````````````````````````````````````", 2 * 8, SH - (3 * 8), 0, 0, 0, false, false);
+          getChar("````````````````````````````````````````````````````", 2 * 8, SH - (2 * 8), 0, 0, 0, false, true);
+        }
+        else {
+          HUDinfo = true;
+          printf("EMU: [HUD Info: True]\n");
+        } SDL_Delay(100);
+      }
+      if ((keystates[SDL_SCANCODE_LCTRL] || keystates[SDL_SCANCODE_RCTRL]) && keystates[SDL_SCANCODE_C]) {
+        if (ShowInput == true) {
+          ShowInput = false;
+          printf("[EMU] Show Controller Input: False\n");
+          getChar("````````````````````````````````````````````````````", 2 * 8, SH - (3 * 8), 0, 0, 0, false, false);
+          getChar("````````````````````````````````````````````````````", 2 * 8, SH - (2 * 8), 0, 0, 0, false, true);
+        }
+        else {
+          ShowInput = true;
+          printf("[EMU] Show Controller Input: True\n");
+        } SDL_Delay(100);
+      }
+      if ((keystates[SDL_SCANCODE_LCTRL] || keystates[SDL_SCANCODE_RCTRL]) && keystates[SDL_SCANCODE_O]) {
+        dropped_filedir = openGUI(0);
+        if (dropped_filedir == "") { continue; }
+        CPU.running = false;
+        printf("EMU Notice: Switching ROM to: %s\n", dropped_filedir);
+        TN = "TheGameRazer - [NO ROM]"; for (int i = 0; i < 23; i++) { Title_Name[i] = TN[i]; } Title_lock = false;
+        getChar("```````````````````````````````", SW / 2 - 15 * 8, SH / 2 - 4, 0, 0, 0, false, true);
+        getChar("```````````````````````````````", SW / 2 - 15 * 8, SH / 2 + 4, 0, 0, 0, false, true);
+        p = true;
+        GPU_reset();
+        CPU.IP = 0;
+        CPU.TI = 0;
+        CPU.IPC = 0;
+        CPU.SP = NULL;
+        CPU.BP = NULL;
+        FPS = 0;
+        for (int i = 0; i < 8; i++) { CPU.REGs[i] = 0; }
+        CPU.IPC = 12000000; //### THIS IS HERE TO FIX A PROBBLEM WITH THE TOTALRAN COUNT ###
+        CPU.reset = false;
+        printf("--------[[EMU-HARD-RESTART]]--------\n");
+        GPU_reset();
+        CPU.running = true;
+        //pthread_create(&call_CPU, NULL, CPU_EXEC, NULL);
+        call_CPU = CreateThread(0, 0, CPU_EXEC, 0, NULL, 0);
+        MsgTimer = 100;
+        memset(Message, 0, strlen(Message));
+        strcat(Message, "LOADED ROM: ");
+        strcat(Message, dropped_filedir);
+        SDL_Delay(100);
+      }
+      if ((keystates[SDL_SCANCODE_LCTRL] || keystates[SDL_SCANCODE_RCTRL]) && keystates[SDL_SCANCODE_R]) {
+        TN = "TheGameRazer - [NO ROM]"; for (int i = 0; i < 23; i++) { Title_Name[i] = TN[i]; } Title_lock = false;
+        getChar("```````````````````````````````", SW / 2 - 15 * 8, SH / 2 - 4, 0, 0, 0, false, true);
+        getChar("```````````````````````````````", SW / 2 - 15 * 8, SH / 2 + 4, 0, 0, 0, false, true);
+        p = true;
+        CPU.reset = true;
+        CPU.IP = 0;
+        CPU.TI = 0;
+        CPU.IPC = 12000000; //### THIS IS HERE TO FIX A PROBBLEM WITH THE TOTALRAN COUNT ###
+        FPS = 0;
+        CPU.pause = false;
+        for (int i = 0; i < 8; i++) { CPU.REGs[i] = 0; }
+        CPU.reset = false;
+        if ((keystates[SDL_SCANCODE_LSHIFT] || keystates[SDL_SCANCODE_RSHIFT]) || CPU.running == false) {
+          CPU.running = false;
+          printf("--------[[EMU-HARD-RESTART]]--------\n");
+          GPU_reset();
+          CPU.running = true;
+          //pthread_create(&call_CPU, NULL, CPU_EXEC, NULL);
+          call_CPU = CreateThread(0, 0, CPU_EXEC, 0, NULL, 0);
+        }
+        else {
+          printf("--------[[EMU-SOFT-RESTART]]--------\n");
+          CPU.running = true;
+        } SDL_Delay(100);
+        /*      for (int y=0;y<SH;y++) {
+           for (int x=0;x<SW;x++) {
+            screen[x][y][0] = 0; buffer[x][y][0] = 0;
+            screen[x][y][1] = 0; buffer[x][y][1] = 0;
+            screen[x][y][2] = 0; buffer[x][y][2] = 0;
+           }
+          }*/
+      }
+      if ((keystates[SDL_SCANCODE_LCTRL] || keystates[SDL_SCANCODE_RCTRL]) && keystates[SDL_SCANCODE_P]) {
+        if (CPU.pause == false) { CPU.pause = true; }
+        else { CPU.pause = false; }
+        SDL_Delay(100);
+      }
+      if ((keystates[SDL_SCANCODE_LCTRL] || keystates[SDL_SCANCODE_RCTRL]) && keystates[SDL_SCANCODE_Q]) { crash = false; Exit = true; }
+      switch (event.type) {
+        //    case SDL_KEYDOWN:
+        //     printf("Oh! Key press: %d\n",event.type);
+        //     break;
+      case SDL_QUIT:
+        crash = false;
+        Exit = true;
+        break;
+
+      case (SDL_DROPFILE):
+        dropped_filedir = event.drop.file;
+        CPU.running = false;
+        printf("EMU Notice: Switching ROM to: %s\n", dropped_filedir);
+        char TN[1024] = "TheGameRazer - [NO ROM]"; for (int i = 0; i < 23; i++) { Title_Name[i] = TN[i]; } Title_lock = false;
+        getChar("```````````````````````````````", SW / 2 - 15 * 8, SH / 2 - 4, 0, 0, 0, false, true);
+        getChar("```````````````````````````````", SW / 2 - 15 * 8, SH / 2 + 4, 0, 0, 0, false, true);
+        p = true;
+        GPU_reset();
+        CPU.IP = 0;
+        CPU.TI = 0;
+        CPU.IPC = 0;
+        CPU.SP = NULL;
+        CPU.BP = NULL;
+        FPS = 0;
+        for (int i = 0; i < 8; i++) { CPU.REGs[i] = 0; }
+        CPU.IPC = 12000000; //### THIS IS HERE TO FIX A PROBBLEM WITH THE TOTALRAN COUNT ###
+        CPU.reset = false;
+        printf("--------[[EMU-HARD-RESTART]]--------\n");
+        GPU_reset();
+        CPU.running = true;
+        //pthread_create(&call_CPU, NULL, CPU_EXEC, NULL);
+        call_CPU = CreateThread(0, 0, CPU_EXEC, 0, NULL, 0);
+        MsgTimer = 100;
+        memset(Message, 0, strlen(Message));
+        strcat(Message, "LOADED ROM: ");
+        strcat(Message, dropped_filedir);
+        break;
+      }
+    }
+    gotUIn = true;
+    if (p == true) {
+      if (MsgTimer > 0) {
+        if (MsgTimer == 1) {
+          getChar("``````````````````````````````````````````````````````````", 2 * 8, 2 * 8, 128, 255, 128, false, false);
+          memset(Message, 0, strlen(Message));
+          //for (int i=0;i<256;i++) { Message[i] = ""; } free(*Message);
+        }
+        //printf("%d, \"%s\"\n",MsgTimer,Message);
+        if (Message != "") {
+          getChar(Message, 2 * 8, 2 * 8, 128, 255, 128, true, true);
+        } MsgTimer--;
+      }
+      getChar("``````````````````````````````````````````````````````````", 2 * 8, SH - (4 * 8), 0, 0, 0, false, false);
+      getChar("``````````````````````````````````````````````````````````", 1 * 8, SH - (6 * 8), 0, 0, 0, false, false);
+      getChar("``````````````````````````````````````````````````````````", 1 * 8, SH - (5 * 8), 0, 0, 0, false, false);
+      if (HUDinfo == false) {
+        char TFPS[255]; snprintf(TFPS, 128, "FPS: %d", FPS);
+        getChar(TFPS, 2 * 8, SH - (4 * 8), 255, 128, 128, true, true);
+      }
+      else {
+        char TFPS[255]; snprintf(TFPS, 128, "FPS: %d | IPS: %d(%.2lf%%) | TotalRan: %ld", FPS, IPS, RunQuality, TIPS);
+        getChar(TFPS, 2 * 8, SH - (4 * 8), 255, 128, 128, true, true);
+
+        //                " RAM Usage: 134217727 bytes/134217727 (100.00% full) | VRAM Usage: 67108863 bytes/67108863 (100.00% full)"
+        snprintf(TFPS, 128, " RAM Usage: %.0lf bytes/%d (%.2lf%% full)", RAMUsage * 100, 0x7FFFFFF, (RAMUsage / 0x7FFFFFF) * 100);
+        getChar(TFPS, 1 * 8, SH - (6 * 8), 255, 128, 128, true, true);
+        snprintf(TFPS, 128, "VRAM Usage: %.0lf bytes/%d (%.2lf%% full)", VRAMUsage * 100, 0x3FFFFFF, (VRAMUsage / 0x3FFFFFF) * 100);
+        getChar(TFPS, 1 * 8, SH - (5 * 8), 255, 128, 128, true, true);
+      }
+      if (ShowInput == true) {
+        getChar("````````````````````````````````````````````````````", 2 * 8, SH - (3 * 8), 0, 0, 0, false, false);
+        //  getChar("P1: A B C X Y Z L R Start Select Up Down Left Right", 2*8, SH-(3*8), 0, 0, 0, 0);
+        getChar("P1:[                                               ]", 2 * 8, SH - (3 * 8), 64, 64, 255, true, true);
+        if (UInput[0][0] == true) { getChar("A", 6 * 8, SH - (3 * 8), 64, 64, 255, 1, true); }
+        if (UInput[1][0] == true) { getChar("B", 8 * 8, SH - (3 * 8), 64, 64, 255, 1, true); }
+        if (UInput[2][0] == true) { getChar("C", 10 * 8, SH - (3 * 8), 64, 64, 255, 1, true); }
+        if (UInput[3][0] == true) { getChar("X", 12 * 8, SH - (3 * 8), 64, 64, 255, 1, true); }
+        if (UInput[4][0] == true) { getChar("Y", 14 * 8, SH - (3 * 8), 64, 64, 255, 1, true); }
+        if (UInput[5][0] == true) { getChar("Z", 16 * 8, SH - (3 * 8), 64, 64, 255, 1, true); }
+        if (UInput[6][0] == true) { getChar("L", 18 * 8, SH - (3 * 8), 64, 64, 255, 1, true); }
+        if (UInput[7][0] == true) { getChar("R", 20 * 8, SH - (3 * 8), 64, 64, 255, 1, true); }
+        if (UInput[8][0] == true) { getChar("START", 22 * 8, SH - (3 * 8), 64, 64, 255, 1, true); }
+        if (UInput[9][0] == true) { getChar("SELECT", 28 * 8, SH - (3 * 8), 64, 64, 255, 1, true); }
+        if (UInput[10][0] == true) { getChar("UP", 35 * 8, SH - (3 * 8), 64, 64, 255, 1, true); }
+        if (UInput[11][0] == true) { getChar("DOWN", 38 * 8, SH - (3 * 8), 64, 64, 255, 1, true); }
+        if (UInput[12][0] == true) { getChar("LEFT", 43 * 8, SH - (3 * 8), 64, 64, 255, 1, true); }
+        if (UInput[13][0] == true) { getChar("RIGHT", 48 * 8, SH - (3 * 8), 64, 64, 255, 1, true); }
+        getChar("````````````````````````````````````````````````````", 2 * 8, SH - (2 * 8), 0, 0, 0, 0, true);
+        //  getChar("P2: A B C X Y Z L R Start Select Up Down Left Right", 2*8, SH-(3*8), 0, 0, 0, 0);
+        getChar("P2:[                                               ]", 2 * 8, SH - (2 * 8), 64, 64, 255, 1, true);
+        if (UInput[0][1] == true) { getChar("A", 6 * 8, SH - (2 * 8), 64, 64, 255, 1, true); }
+        if (UInput[1][1] == true) { getChar("B", 8 * 8, SH - (2 * 8), 64, 64, 255, 1, true); }
+        if (UInput[2][1] == true) { getChar("C", 10 * 8, SH - (2 * 8), 64, 64, 255, 1, true); }
+        if (UInput[3][1] == true) { getChar("X", 12 * 8, SH - (2 * 8), 64, 64, 255, 1, true); }
+        if (UInput[4][1] == true) { getChar("Y", 14 * 8, SH - (2 * 8), 64, 64, 255, 1, true); }
+        if (UInput[5][1] == true) { getChar("Z", 16 * 8, SH - (2 * 8), 64, 64, 255, 1, true); }
+        if (UInput[6][1] == true) { getChar("L", 18 * 8, SH - (2 * 8), 64, 64, 255, 1, true); }
+        if (UInput[7][1] == true) { getChar("R", 20 * 8, SH - (2 * 8), 64, 64, 255, 1, true); }
+        if (UInput[8][1] == true) { getChar("START", 22 * 8, SH - (2 * 8), 64, 64, 255, 1, true); }
+        if (UInput[9][1] == true) { getChar("SELECT", 28 * 8, SH - (2 * 8), 64, 64, 255, 1, true); }
+        if (UInput[10][1] == true) { getChar("UP", 35 * 8, SH - (2 * 8), 64, 64, 255, 1, true); }
+        if (UInput[11][1] == true) { getChar("DOWN", 38 * 8, SH - (2 * 8), 64, 64, 255, 1, true); }
+        if (UInput[12][1] == true) { getChar("LEFT", 43 * 8, SH - (2 * 8), 64, 64, 255, 1, true); }
+        if (UInput[13][1] == true) { getChar("RIGHT", 48 * 8, SH - (2 * 8), 64, 64, 255, 1, true); }
+        //if (CPU.running == false && dropped_filedir != "") { Exit = true; printf("-1\n"); }
+      }
+    }
+  }
+  // SDL_Delay(1000 / (12000000 / CPU.IPC));
+  if (argc < 2 && crash == true) { SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "TheGameRazer [[HALT DETECTED]]", "\nEMU: We have detected the main loop has stopped due to a halt...\n\nThis halt is due to the program has ended or due to a Emulation Error.\nIf there is a Emulation Error check in the terminal for what the problem is in the ROM.\n/!\\Reminder: check the ROM before reporting EMU probblems/!\\", window); }
+  SDL_DestroyRenderer(GPU_SCREEN);
+  SDL_DestroyWindow(window);
+  SDL_Quit();
+  printf("EMU Notice: Screen Closed...\n");
+  if (crash == true) {
+    printf("\nEMU: We have detected the main loop has stopped due to a halt...\n\nThis halt is due to the program has ended or due to a Emulation Error.\nIf there is a Emulation Error check above for what the problem is in the ROM.\n/!\\Reminder: check the ROM before reporting EMU probblems/!\\\n");
+  }
+  //printf("The screen isn't active but is can still be viewed, to reset the emulator you need to goto your\n terminal and press [CTRL] + [C] and relaunch.");
+  //printf("TIP: pressing [CTRL] + [M] will list RAM from RenderRAMPOS + 0x0000 to RenderRAMPOS + 0x02FF\n same with VideoRAM by pressing [CTRL] + [V]...\n and pressing [CTRL] + [KeyPad+] or [CTRL] + [KeyPad-] will adjust RenderRAMPOS by 0x10");
+  printf("\nTotal ran instructions: %ld\n\n", CPU.TI);
+  //CoUninitialize();
+  return 0;
+}
+
+//right val nibble = byte & 0xF;
+//left  val nibble = byte >> 4;
+
+void getChar(char* Letter, int x, int y, int R, int G, int B, bool A, bool shadow) {
+  for (int i = 0; i < strlen(Letter); i++) {
+    int j = 0;
+    for (j = 0; j < 98; j++) {
+      //if (j == 70) { j = 0; break; }
+      if (Letter[i] == chars[j]) { break; }
+    }
+    for (int ix = 0; ix < 8; ix++) {
+      for (int iy = 0; iy < 8; iy++) {
+        if (font[j][iy][ix] == '1' && (i * 8) + x + ix >= 0 && (i * 8) + x + ix < SW && y + iy >= 0 && y + iy < SH) {
+          if (shadow == true) {
+            overlay[(i * 8) + x + ix + 1][y + iy + 1][0] = 0;
+            overlay[(i * 8) + x + ix + 1][y + iy + 1][1] = 0;
+            overlay[(i * 8) + x + ix + 1][y + iy + 1][2] = 0;
+            overlay[(i * 8) + x + ix + 1][y + iy + 1][3] = (int)A;
+          }
+          overlay[(i * 8) + x + ix][y + iy][0] = R;
+          overlay[(i * 8) + x + ix][y + iy][1] = G;
+          overlay[(i * 8) + x + ix][y + iy][2] = B;
+          overlay[(i * 8) + x + ix][y + iy][3] = (int)A;
+        }
+      }
+    }
+  }
+}
+// `ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-+_=[]{}\|;:'".,<>/?~abcdefghijklmnopqrstuvwxyz
+char chars[95] = " `ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-+_=[]{}\\|;:'\".,<>/?~abcdefghijklmnopqrstuvwxyz";
+char* font[95][8] = {
+ {"00000000","00000000","00000000","00000000","00000000","00000000","00000000","00000000"},//   00
+ {"11111111","11111111","11111111","11111111","11111111","11111111","11111111","11111111"},// `█01
+ {"00111100","01000010","01000010","01111110","01000010","01000010","01000010","00000000"},// A 02
+ {"01111100","01000010","01000010","01111100","01000010","01000010","01111100","00000000"},// B 03
+ {"00111100","01000010","01000000","01000000","01000000","01000010","00111100","00000000"},// C 04
+ {"01111100","01000010","01000010","01000010","01000010","01000010","01111100","00000000"},// D 05
+ {"01111110","01000000","01000000","01111100","01000000","01000000","01111110","00000000"},// E 06
+ {"01111110","01000000","01000000","01111100","01000000","01000000","01000000","00000000"},// F 07
+ {"00111100","01000010","01000000","01001110","01000010","01000010","00111100","00000000"},// G 08
+ {"01000010","01000010","01000010","01111110","01000010","01000010","01000010","00000000"},// H 09
+ {"01111110","00011000","00011000","00011000","00011000","00011000","01111110","00000000"},// I 10
+ {"01111110","00000100","00000100","00000100","00000100","01000100","00111000","00000000"},// J 11
+ {"01000100","01001000","01010000","01100000","01010000","01001000","01000100","00000000"},// K 12
+ {"01000000","01000000","01000000","01000000","01000000","01000000","01111110","00000000"},// L 13
+ {"01000010","01100110","01100110","01011010","01011010","01000010","01000010","00000000"},// M 14
+ {"01000010","01100010","01010010","01001010","01000110","01000010","01000010","00000000"},// N 15
+ {"00111100","01000010","01000010","01000010","01000010","01000010","00111100","00000000"},// O 16
+ {"01111100","01000010","01000010","01111100","01000000","01000000","01000000","00000000"},// P 17
+ {"00111100","01000010","01000010","01000010","01001010","01000110","00111110","00000000"},// Q 18
+ {"01111100","01000010","01000010","01111100","01010000","01001000","01000100","00000000"},// R 19
+ {"00111100","01000010","00100000","00011000","00000100","01000010","00111100","00000000"},// S 20
+ {"01111110","00011000","00011000","00011000","00011000","00011000","00011000","00000000"},// T 21
+ {"01000010","01000010","01000010","01000010","01000010","01000010","00111100","00000000"},// U 22
+ {"01000010","01000010","01000010","01000010","00100100","00100100","00011000","00000000"},// V 23
+ {"01010100","01010100","01010100","01010100","01010100","01010100","00101000","00000000"},// W 24
+ {"01000010","01000010","00100100","00011000","00011000","00100100","01000010","00000000"},// X 25
+ {"01000010","01000010","00100100","00011000","00011000","00011000","00011000","00000000"},// Y 26
+ {"01111110","00000100","00001000","00010000","00100000","01000000","01111110","00000000"},// Z 27
+ {"00111100","01000010","01100010","01011010","01000110","01000010","00111100","00000000"},// 0 28
+ {"00001000","00011000","00001000","00001000","00001000","00001000","00001000","00000000"},// 1 29
+ {"00111100","01000010","00000100","00001000","00010000","00100000","01111110","00000000"},// 2 30
+ {"00111100","01000010","00000010","00001100","00000010","01000010","00111100","00000000"},// 3 31
+ {"00000100","00001100","00010100","00100100","01111110","00000100","00000100","00000000"},// 4 32
+ {"01111110","01000000","01000000","01111100","00000010","01000010","00111100","00000000"},// 5 33
+ {"00111100","01000010","01000000","01111100","01000010","01000010","00111100","00000000"},// 6 34
+ {"01111110","00000010","00000100","00000100","00001000","00001000","00010000","00000000"},// 7 35
+ {"00111100","01000010","01000010","00111100","01000010","01000010","00111100","00000000"},// 8 36
+ {"00111100","01000010","01000010","00111110","00000010","00000010","00111100","00000000"},// 9 37
+ {"00001000","00001000","00001000","00001000","00001000","00000000","00001000","00000000"},// ! 38
+ {"00111100","01000010","01110010","01101010","01110010","01011100","00111110","00000000"},// @ 39
+ {"00000000","00100100","01111110","00100100","00100100","01111110","00100100","00000000"},// # 40
+ {"00011000","00111100","01011010","00111000","00011100","01011010","00111100","00011000"},// $ 41
+ {"01100001","10010010","10010100","01101000","00010110","00101001","01001001","10000110"},// % 42
+ {"00011000","00100100","01000010","00000000","00000000","00000000","00000000","00000000"},// ^ 43
+ {"00011000","00100100","00100100","00111010","01000100","01000100","00111010","00000000"},// & 44
+ {"00101010","00011100","00111110","00011100","00101010","00000000","00000000","00000000"},// * 45
+ {"00001100","00010000","00010000","00010000","00010000","00010000","00001100","00000000"},// ( 46
+ {"00110000","00001000","00001000","00001000","00001000","00001000","00110000","00000000"},// ) 47
+ {"00000000","00000000","00000000","01111110","01111110","00000000","00000000","00000000"},// - 48
+ {"00000000","00011000","00011000","01111110","01111110","00011000","00011000","00000000"},// + 49
+ {"00000000","00000000","00000000","00000000","00000000","00000000","00000000","11111111"},// _ 50
+ {"00000000","00000000","01111110","00000000","00000000","01111110","00000000","00000000"},// = 51
+ {"00011100","00010000","00010000","00010000","00010000","00010000","00011100","00000000"},// [ 52
+ {"00111000","00001000","00001000","00001000","00001000","00001000","00111000","00000000"},// ] 53
+ {"00011100","00010000","00010000","00100000","00010000","00010000","00011100","00000000"},// { 54
+ {"00111000","00001000","00001000","00000100","00001000","00001000","00111000","00000000"},// } 55
+ {"10000000","01000000","00100000","00010000","00001000","00000100","00000010","00000001"},// \ 56 /
+ {"00011000","00011000","00011000","00011000","00011000","00011000","00011000","00011000"},// | 57
+ {"00000000","00000000","00001000","00000000","00000000","00001000","00010000","00000000"},// ; 58
+ {"00000000","00000000","00001000","00000000","00000000","00001000","00000000","00000000"},// : 59
+ {"00001000","00001000","00000000","00000000","00000000","00000000","00000000","00000000"},// ' 60
+ {"00100100","00100100","00000000","00000000","00000000","00000000","00000000","00000000"},// " 61
+ {"00000000","00000000","00000000","00000000","00000000","00000000","00001000","00000000"},// . 62
+ {"00000000","00000000","00000000","00000000","00000000","00000000","00001000","00010000"},// , 63
+ {"00000000","00000110","00011000","01100000","00011000","00000110","00000000","00000000"},// < 64
+ {"00000000","01100000","00011000","00000110","00011000","01100000","00000000","00000000"},// > 65
+ {"00000001","00000010","00000100","00001000","00010000","00100000","01000000","10000000"},// / 66
+ {"00111100","01000010","01000010","00001100","00001000","00000000","00001000","00000000"},// ? 67
+ {"00000000","00000000","00000000","00110010","01001100","00000000","00000000","00000000"},// ~ 68
+ {"00111100","01000010","01000010","01111110","01000010","01000010","01000010","00000000"},// A 69
+ {"01111100","01000010","01000010","01111100","01000010","01000010","01111100","00000000"},// B 70
+ {"00111100","01000010","01000000","01000000","01000000","01000010","00111100","00000000"},// C 71
+ {"01111100","01000010","01000010","01000010","01000010","01000010","01111100","00000000"},// D 72
+ {"01111110","01000000","01000000","01111100","01000000","01000000","01111110","00000000"},// E 73
+ {"01111110","01000000","01000000","01111100","01000000","01000000","01000000","00000000"},// F 74
+ {"00111100","01000010","01000000","01001110","01000010","01000010","00111100","00000000"},// G 75
+ {"01000010","01000010","01000010","01111110","01000010","01000010","01000010","00000000"},// H 76
+ {"01111110","00011000","00011000","00011000","00011000","00011000","01111110","00000000"},// I 77
+ {"01111110","00000100","00000100","00000100","00000100","01000100","00111000","00000000"},// J 78
+ {"01000100","01001000","01010000","01100000","01010000","01001000","01000100","00000000"},// K 79
+ {"01000000","01000000","01000000","01000000","01000000","01000000","01111110","00000000"},// L 80
+ {"01000010","01100110","01100110","01011010","01011010","01000010","01000010","00000000"},// M 81
+ {"01000010","01100010","01010010","01001010","01000110","01000010","01000010","00000000"},// N 82
+ {"00111100","01000010","01000010","01000010","01000010","01000010","00111100","00000000"},// O 83
+ {"01111100","01000010","01000010","01111100","01000000","01000000","01000000","00000000"},// P 84
+ {"00111100","01000010","01000010","01000010","01001010","01000110","00111110","00000000"},// Q 85
+ {"01111100","01000010","01000010","01111100","01010000","01001000","01000100","00000000"},// R 86
+ {"00111100","01000010","00100000","00011000","00000100","01000010","00111100","00000000"},// S 87
+ {"01111110","00011000","00011000","00011000","00011000","00011000","00011000","00000000"},// T 88
+ {"00000000","01000010","01000010","01000010","01000010","01000010","00111100","00000000"},// U 89
+ {"00000000","01000010","01000010","01000010","00100100","00100100","00011000","00000000"},// V 90
+ {"00000000","01010100","01010100","01010100","01010100","01010100","00101000","00000000"},// W 91
+ {"00000000","01000010","00100100","00011000","00011000","00100100","01000010","00000000"},// X 92
+ {"01000010","01000010","00100100","00011000","00011000","00011000","00011000","00000000"},// Y 93
+ {"01111110","00000100","00001000","00010000","00100000","01000000","01111110","00000000"},// Z 94
+};
+
+char* openGUI(int type) {
+  //0: Load ROM
+  //1: Load SaveState as ..
+  //2: Save SaveState as ..
+  //3: export V/RAM dump as HEX in ASCII(will cause lag)
+  OPENFILENAME ofn;
+  char szFileName[MAX_PATH] = "";
+
+  ZeroMemory(&ofn, sizeof(ofn)); // ZeroMemory in WinAPI is basically memsetting the address to 0
+
+  ofn.lStructSize = sizeof(ofn); // SEE NOTE BELOW
+  ofn.hwndOwner = GetActiveWindow();
+
+  if (type == 0) {
+    if (sysOS == 0) { //Windows
+      ofn.lpstrTitle  = L"Load GameRazer ROM";
+      ofn.lpstrFilter = L"GameRazerROM(*.tgr)\0*.tgr\0All Files (*.*)\0*.*\0";
+    }
+    else if (sysOS == 1) { //Linux
+      //strcpy(cmd, "zenity --file-selection --file-filter=\"GameRazerROM(*.tgr)|*.tgr\" --title=\"Load GameRazer ROM\"");
+    }
+    else {
+      return "";
+    }
+  }
+  else if (type == 1) {
+    if (sysOS == 0) { //Windows
+      ofn.lpstrTitle  = L"Load TGRState";
+      ofn.lpstrFilter = L"GameRazerState(*.tgrs)\0*.tgrs\0All Files (*.*)\0*.*\0";
+    }
+    else if (sysOS == 1) { //Linux
+      //strcpy(cmd, "zenity --file-selection --file-filter=\"GameRazerState(*.tgrs)|*.tgrs\" --title=\"Load TGRState\"");
+    }
+    else {
+      return "";
+    }
+  }
+  else if (type == 2) {
+    if (sysOS == 0) { //Windows
+      ofn.lpstrTitle  = L"Save TGRState";
+      ofn.lpstrFilter = L"GameRazerState(*.tgrs)\0*.tgrs\0All Files (*.*)\0*.*\0";
+    }
+    else if (sysOS == 1) { //Linux
+      //strcpy(cmd, "zenity --file-selection --save --file-filter=\"GameRazerState(*.tgrs)|*.tgrs\" --title=\"Save TGRState\" --confirm-overwrite");
+    }
+    else {
+      return "";
+    }
+  }
+  else if (type == 3) {
+    if (sysOS == 0) { //Windows
+      ofn.lpstrTitle  = L"Save Memory Dump";
+      ofn.lpstrFilter = L"Raw Data file(*.dat)\0*.dat\0All Files (*.*)\0*.*\0";
+    }
+    else if (sysOS == 1) { //Linux
+      //strcpy(cmd, "zenity --file-selection --save --file-filter=\"Raw Data file(*.dat)|*.dat\" --title=\"Save Memory Dump\" --confirm-overwrite");
+    }
+    else {
+      return "";
+    }
+  } //"error" -> "EMU Error: Uknown OS Detected"
+  // printf("CMD: %s\n", cmd);
+  // char* file = malloc(1024); free(file);
+  // FILE* f = popen(cmd, "r");
+  // fgets(file, 1024, f);
+  // strtok(file, "\n");
+  // if (file[0] == -80) { printf("EMU Error: Invalid FileName!\n"); SDL_Delay(1000); return ""; }
+  // SDL_Delay(100);
+  // return file;
+
+  ofn.lpstrFile = szFileName;
+  ofn.nMaxFile = sizeof(szFileName);
+  ofn.Flags = OFN_EXPLORER | OFN_FILEMUSTEXIST;
+
+  if (GetOpenFileName(&ofn)) { // <--- error
+    printf(">>>> %s <<<<\n", ofn.lpstrFile);
+    return ofn.lpstrFile;
+    // Do something usefull with the filename stored in szFileName
+  } else { return ""; }
+}
